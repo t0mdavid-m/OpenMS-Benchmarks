@@ -21,3 +21,10 @@ def test_single_group_placeholder_rule():
     # Placeholder datasets map everything non-contaminant to one group.
     assert assign_species("sp|X|FOO_BAR", "Cont_", {"": "ALL"}) == "ALL"
     assert assign_species("sp|Cont_X|FOO_BAR", "Cont_", {"": "ALL"}) is None
+
+
+def test_catch_all_is_order_independent():
+    # Catch-all must not shadow a named suffix regardless of dict order.
+    m = {"": "ALL", "_HUMAN": "HUMAN"}
+    assert assign_species("sp|P1|ALB_HUMAN", "Cont_", m) == "HUMAN"
+    assert assign_species("sp|P2|FOO_BAR", "Cont_", m) == "ALL"
