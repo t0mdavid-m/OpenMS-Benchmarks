@@ -1,0 +1,5 @@
+name: lfq-comet
+engine: comet
+type: lfq-quant
+applies_to: lfq
+description: Label-free DDA quantification using the Comet search engine.
