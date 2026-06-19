@@ -1,0 +1,7 @@
+data/cache/
+config.toml
+*.worktree/
+.pytest_cache/
+__pycache__/
+results/results.tsv
+OpenMS/
