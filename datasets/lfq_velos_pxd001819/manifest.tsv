@@ -1,0 +1,6 @@
+filename	role	condition	replicate	sha256
+UPS1_12500amol_R1.mzML.gz	spectra	A	1	PENDING
+UPS1_12500amol_R2.mzML.gz	spectra	A	2	PENDING
+UPS1_125amol_R1.mzML.gz	spectra	B	1	PENDING
+UPS1_125amol_R2.mzML.gz	spectra	B	2	PENDING
+human_sp.fasta	fasta			PENDING

@@ -57,10 +57,18 @@ def load_dataset(path: Path) -> Dataset:
     files: list[FileEntry] = []
     with (path / "manifest.tsv").open(encoding="utf-8") as fh:
         for row in csv.DictReader(fh, delimiter="\t"):
+            is_fasta = row["role"].strip() == "fasta"
+            fasta_override = meta.get("fasta_http_url")
+            if is_fasta and fasta_override:
+                http_url = fasta_override
+                rsync_path = ""
+            else:
+                http_url = f"{http_base}{rel}/{row['filename']}"
+                rsync_path = f"/benchmarks/pride-benchmarks/{rel}/{row['filename']}"
             files.append(FileEntry(
                 filename=row["filename"],
-                rsync_path=f"/benchmarks/pride-benchmarks/{rel}/{row['filename']}",
-                http_url=f"{http_base}{rel}/{row['filename']}",
+                rsync_path=rsync_path,
+                http_url=http_url,
                 sha256=row["sha256"].strip(),
                 role=row["role"].strip(),
                 condition=(row["condition"].strip() or None),

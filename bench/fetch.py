@@ -56,7 +56,7 @@ def fetch_dataset(dataset: Dataset, config: Config) -> Path:
             except ValueError:
                 need = True  # cached copy is corrupt/stale: refetch
         if need:
-            if use_rsync:
+            if use_rsync and entry.rsync_path:
                 _fetch_rsync(entry, dest, config)
             else:
                 _fetch_http(entry, dest)

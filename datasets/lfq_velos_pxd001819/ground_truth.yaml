@@ -1,0 +1,22 @@
+meta:
+  name: lfq_velos_pxd001819
+  category: lfq
+  instrument: LTQOrbitrapVelos
+  remote_dir: PXD001819
+  http_base: https://archive.openms.org/openms/benchmarks/pride-benchmarks/
+  precursor_tol_ppm: 20.0
+  fragment_tol_da: 0.5
+  fasta_http_url: https://archive.openms.org/openms/testfiles/human_sp.fasta
+provenance:
+  source: PLACEHOLDER — not authored from publication; values are deliberately fake
+  retrieved: "2026-06-19"
+ratio_direction: A_over_B
+species_rule:
+  exclude_regex: "Cont_"
+  suffix_map:
+    "": ALL            # catch-all: every non-contaminant protein -> ALL
+expected_log2_ratio:
+  ALL: 99.0            # absurd sentinel: no real ratio is 99
+conditions:
+  A: [UPS1_12500amol_R1, UPS1_12500amol_R2]
+  B: [UPS1_125amol_R1, UPS1_125amol_R2]
