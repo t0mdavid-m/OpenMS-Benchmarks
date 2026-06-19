@@ -40,7 +40,10 @@ class Dataset:
         return [f for f in self.files if f.role == "spectra"]
 
     def fasta(self) -> FileEntry:
-        return next(f for f in self.files if f.role == "fasta")
+        for f in self.files:
+            if f.role == "fasta":
+                return f
+        raise ValueError(f"dataset {self.name!r} has no fasta entry")
 
 
 def load_dataset(path: Path) -> Dataset:
