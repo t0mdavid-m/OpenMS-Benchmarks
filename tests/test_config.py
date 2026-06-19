@@ -21,6 +21,9 @@ def test_load_config_reads_values(tmp_path: Path):
     assert cfg.openms_repo == Path("OpenMS")
     assert cfg.rsync_user == "u"
     assert cfg.rsync_port == 22
+    assert cfg.http_base == "https://archive.openms.org/openms/benchmarks/pride-benchmarks/"
+    assert cfg.rsync_host == "h"
+    assert cfg.rsync_key == "k"
 
 
 def test_load_config_rsync_optional(tmp_path: Path):
@@ -29,3 +32,4 @@ def test_load_config_rsync_optional(tmp_path: Path):
     cfg = load_config(cfg_file)
     assert cfg.rsync_user is None
     assert cfg.threads == 2
+    assert cfg.http_base.startswith("https://")

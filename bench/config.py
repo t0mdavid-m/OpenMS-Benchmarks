@@ -19,8 +19,10 @@ class Config:
 
 
 def load_config(path: Path) -> Config:
-    data = tomllib.loads(Path(path).read_text(encoding="utf-8"))
-    root = Path(path).resolve().parent
+    path = Path(path)
+    with path.open("rb") as fh:
+        data = tomllib.load(fh)
+    root = path.resolve().parent
     rsync = data.get("rsync", {})
     return Config(
         openms_repo=Path(data.get("openms_repo", "OpenMS")),
