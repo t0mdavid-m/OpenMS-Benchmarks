@@ -8,6 +8,11 @@ from bench.datasets import Dataset
 from bench.workflows import Workflow
 
 
+def _host_path(p: Path) -> str:
+    """Docker Desktop on Windows wants forward-slash host paths in -v mounts."""
+    return str(Path(p).resolve()).replace("\\", "/")
+
+
 @dataclass
 class RunResult:
     out_dir: Path
@@ -51,9 +56,9 @@ def run_workflow(image: str, workflow: Workflow, dataset: Dataset,
     )
     cmd = [
         "docker", "run", "--rm",
-        "-v", f"{workflows_dir}:/work:ro",
-        "-v", f"{data_dir}:/data:ro",
-        "-v", f"{out_dir}:/out",
+        "-v", f"{_host_path(workflows_dir)}:/work:ro",
+        "-v", f"{_host_path(data_dir)}:/data:ro",
+        "-v", f"{_host_path(out_dir)}:/out",
         "-e", "INPUT_DIR=/data",
         "-e", f"FASTA=/data/{fasta_name}",
         "-e", "OUT_DIR=/out",
@@ -72,7 +77,9 @@ def run_workflow(image: str, workflow: Workflow, dataset: Dataset,
     peak_file = out_dir / "peak_mem_bytes.txt"
     if peak_file.exists():
         txt = peak_file.read_text(encoding="utf-8").strip()
-        if txt.isdigit():
+        try:
             peak = float(txt)
+        except ValueError:
+            peak = None
     return RunResult(out_dir=out_dir, wall_clock_s=wall,
                      peak_mem_bytes=peak, returncode=proc.returncode)
