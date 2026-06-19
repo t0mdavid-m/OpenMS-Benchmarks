@@ -1,0 +1,29 @@
+meta:
+  name: proteobench_module2
+  category: lfq
+  instrument: QExactiveHF
+  remote_dir: ProteoBench_Module_2
+  http_base: https://archive.openms.org/openms/benchmarks/pride-benchmarks/
+  precursor_tol_ppm: 10.0
+  fragment_tol_da: 0.02
+provenance:
+  source: https://raw.githubusercontent.com/Proteobench/ProteoBench/main/proteobench/io/parsing/io_parse_settings/Quant/lfq/DDA/ion/QExactive/module_settings.toml
+  retrieved: "2026-06-19"
+ratio_direction: A_over_B
+species_rule:
+  exclude_regex: "Cont_"
+  suffix_map:
+    _HUMAN: HUMAN
+    _YEAST: YEAST
+    _ECOLI: ECOLI
+expected_log2_ratio:
+  HUMAN: 0.0
+  YEAST: 1.0
+  ECOLI: -2.0
+conditions:
+  A: [LFQ_Orbitrap_DDA_Condition_A_Sample_Alpha_01,
+      LFQ_Orbitrap_DDA_Condition_A_Sample_Alpha_02,
+      LFQ_Orbitrap_DDA_Condition_A_Sample_Alpha_03]
+  B: [LFQ_Orbitrap_DDA_Condition_B_Sample_Alpha_01,
+      LFQ_Orbitrap_DDA_Condition_B_Sample_Alpha_02,
+      LFQ_Orbitrap_DDA_Condition_B_Sample_Alpha_03]
