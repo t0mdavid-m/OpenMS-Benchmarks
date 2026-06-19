@@ -18,7 +18,13 @@ DecoyDatabase -in "$FASTA" -out "$DB_FASTA" \
 mkdir -p "$WORK/idxml"
 FILTERED_IDS=()
 QUANT_MZML=()
-for mz in "$INPUT_DIR"/*.mzML; do
+shopt -s nullglob
+mzml_files=("$INPUT_DIR"/*.mzML)
+if [ ${#mzml_files[@]} -eq 0 ]; then
+  echo "ERROR: no .mzML files found in $INPUT_DIR" >&2
+  exit 1
+fi
+for mz in "${mzml_files[@]}"; do
   base="$(basename "$mz" .mzML)"
   raw_id="$WORK/idxml/${base}.idXML"
   run_search "$mz" "$DB_FASTA" "$raw_id"            # defined by run.sh
