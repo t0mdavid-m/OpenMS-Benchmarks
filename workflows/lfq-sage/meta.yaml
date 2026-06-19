@@ -1,0 +1,5 @@
+name: lfq-sage
+engine: sage
+type: lfq-quant
+applies_to: lfq
+description: Label-free DDA quantification using the Sage search engine.
