@@ -1,5 +1,6 @@
 import csv
 import hashlib
+import os
 import subprocess
 import urllib.request
 from pathlib import Path
@@ -26,9 +27,11 @@ def verify_or_raise(path: Path, expected: str) -> None:
 
 
 def _fetch_http(entry: FileEntry, dest: Path) -> None:
-    with urllib.request.urlopen(entry.http_url) as resp, dest.open("wb") as out:
+    tmp = dest.with_name(dest.name + ".tmp")
+    with urllib.request.urlopen(entry.http_url) as resp, tmp.open("wb") as out:
         while chunk := resp.read(1 << 20):
             out.write(chunk)
+    os.replace(tmp, dest)
 
 
 def _fetch_rsync(entry: FileEntry, dest: Path, cfg: Config) -> None:
@@ -67,12 +70,14 @@ def fetch_dataset(dataset: Dataset, config: Config) -> Path:
 
 
 def _rewrite_manifest(manifest: Path, pinned: dict[str, str]) -> None:
-    rows = list(csv.DictReader(manifest.open(encoding="utf-8"), delimiter="\t"))
-    fields = rows[0].keys() if rows else []
+    with manifest.open(encoding="utf-8") as fh:
+        reader = csv.DictReader(fh, delimiter="\t")
+        fields = list(reader.fieldnames or [])
+        rows = list(reader)
     for r in rows:
         if r["filename"] in pinned and r["sha256"].strip() == "PENDING":
             r["sha256"] = pinned[r["filename"]]
     with manifest.open("w", newline="", encoding="utf-8") as fh:
-        w = csv.DictWriter(fh, fieldnames=list(fields), delimiter="\t")
+        w = csv.DictWriter(fh, fieldnames=fields, delimiter="\t")
         w.writeheader()
         w.writerows(rows)
