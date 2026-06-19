@@ -53,3 +53,15 @@ def test_checkout_worktree_idempotent_when_dest_exists(tiny_repo: Path, tmp_path
     # Second call on an existing dest must succeed (stale-worktree safety).
     checkout_worktree(tiny_repo, sha, dest)
     assert (dest / "f.txt").read_text(encoding="utf-8") == "hi"
+
+
+def test_checkout_worktree_relative_dest_resolved_absolute(tiny_repo: Path, tmp_path: Path, monkeypatch):
+    sha = resolve_ref(tiny_repo, "main")
+    workdir = tmp_path / "cwd"
+    workdir.mkdir()
+    monkeypatch.chdir(workdir)
+    returned = checkout_worktree(tiny_repo, sha, Path("rel.worktree"))
+    # Returned path must be absolute and live under the cwd, NOT inside the repo.
+    assert returned.is_absolute()
+    assert (workdir / "rel.worktree" / "f.txt").read_text(encoding="utf-8") == "hi"
+    assert not (tiny_repo / "rel.worktree").exists()

@@ -26,7 +26,7 @@ def resolve_ref(repo: Path, ref: str) -> str:
 def checkout_worktree(repo: Path, sha: str, dest: Path) -> Path:
     """Create a clean detached worktree at `dest` checked out at `sha`."""
     repo = Path(repo)
-    dest = Path(dest)
+    dest = Path(dest).resolve()
     if dest.exists():
         # Remove a stale worktree registration then the dir.
         subprocess.run(["git", "-C", str(repo), "worktree", "remove",
