@@ -79,8 +79,11 @@ def main(argv: list[str] | None = None) -> int:
         print("no (workflow, dataset) pairs matched the filters", file=sys.stderr)
         return 1
 
+    fetched: dict[str, Path] = {}
     for wf, ds in pairs:
-        data_dir = fetch_dataset(ds, cfg)
+        if ds.name not in fetched:
+            fetched[ds.name] = fetch_dataset(ds, cfg)
+        data_dir = fetched[ds.name]
         out_dir = Path("results") / "runs" / sha[:12] / wf.name / ds.name
         result = run_workflow(image, wf, ds, data_dir, out_dir, cfg)
         identity = build_identity(sha=sha, tag=tag, workflow=wf,
