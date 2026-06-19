@@ -12,6 +12,7 @@ class Config:
     datasets_dir: Path
     threads: int
     http_base: str
+    verify_tls: bool
     rsync_user: str | None
     rsync_host: str | None
     rsync_port: int | None
@@ -35,6 +36,7 @@ def load_config(path: Path) -> Config:
             "http_base",
             "https://archive.openms.org/openms/benchmarks/pride-benchmarks/",
         ),
+        verify_tls=bool(data.get("verify_tls", True)),
         rsync_user=rsync.get("user"),
         rsync_host=rsync.get("host"),
         rsync_port=rsync.get("port"),

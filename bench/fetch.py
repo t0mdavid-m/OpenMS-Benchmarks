@@ -1,6 +1,7 @@
 import csv
 import hashlib
 import os
+import ssl
 import subprocess
 import urllib.request
 from pathlib import Path
@@ -26,9 +27,14 @@ def verify_or_raise(path: Path, expected: str) -> None:
                          f"expected {expected}, got {actual}")
 
 
-def _fetch_http(entry: FileEntry, dest: Path) -> None:
+def _fetch_http(entry: FileEntry, dest: Path, verify_tls: bool = True) -> None:
+    ctx = None
+    if not verify_tls:
+        ctx = ssl.create_default_context()
+        ctx.check_hostname = False
+        ctx.verify_mode = ssl.CERT_NONE
     tmp = dest.with_name(dest.name + ".tmp")
-    with urllib.request.urlopen(entry.http_url) as resp, tmp.open("wb") as out:
+    with urllib.request.urlopen(entry.http_url, context=ctx) as resp, tmp.open("wb") as out:
         while chunk := resp.read(1 << 20):
             out.write(chunk)
     os.replace(tmp, dest)
@@ -59,7 +65,7 @@ def fetch_dataset(dataset: Dataset, config: Config) -> Path:
             if use_rsync and entry.rsync_path:
                 _fetch_rsync(entry, dest, config)
             else:
-                _fetch_http(entry, dest)
+                _fetch_http(entry, dest, config.verify_tls)
             verify_or_raise(dest, entry.sha256)
         if entry.sha256 == "PENDING":
             pinned[entry.filename] = sha256_file(dest)
