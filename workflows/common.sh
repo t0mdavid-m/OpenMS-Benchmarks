@@ -34,14 +34,27 @@ for mz in "${mzml_files[@]}"; do
     -decoy_string DECOY_ -decoy_string_position prefix \
     -missing_decoy_action warn
 
-  FalseDiscoveryRate -in "$WORK/idxml/${base}.idx.idXML" \
+  # Posterior Error Probability — ProteomicsLFQ requires PEP as the main score.
+  IDPosteriorErrorProbability -in "$WORK/idxml/${base}.idx.idXML" \
+    -out "$WORK/idxml/${base}.pep.idXML"
+
+  # PSM-level q-value FDR (protein inference is ProteomicsLFQ's job).
+  FalseDiscoveryRate -in "$WORK/idxml/${base}.pep.idXML" \
     -out "$WORK/idxml/${base}.fdr.idXML" \
     -PSM true -protein false -threads "$THREADS"
 
+  # Filter at 1% PSM FDR (main score is the q-value here).
   IDFilter -in "$WORK/idxml/${base}.fdr.idXML" \
     -out "$WORK/idxml/${base}.filt.idXML" -score:psm 0.01
 
-  FILTERED_IDS+=("$WORK/idxml/${base}.filt.idXML")
+  # Restore PEP (stored as a meta value by FDR) as the main score for ProteomicsLFQ.
+  IDScoreSwitcher -in "$WORK/idxml/${base}.filt.idXML" \
+    -out "$WORK/idxml/${base}.pepscore.idXML" \
+    -new_score "Posterior Error Probability_score" \
+    -new_score_orientation lower_better \
+    -new_score_type "Posterior Error Probability"
+
+  FILTERED_IDS+=("$WORK/idxml/${base}.pepscore.idXML")
   QUANT_MZML+=("$mz")
 done
 
@@ -52,8 +65,8 @@ ProteomicsLFQ \
   -design "$DESIGN_TSV" \
   -fasta "$DB_FASTA" \
   -targeted_only true \
-  -transfer_ids false \
-  -protein_quantification strongest_3_peptides \
+  -ProteinQuantification:top:N 3 \
+  -out "$WORK/out.mzTab" \
   -out_msstats "$WORK/msstats.csv" \
   -threads "$THREADS"
 
