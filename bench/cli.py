@@ -67,7 +67,7 @@ def main(argv: list[str] | None = None) -> int:
 
     worktree = checkout_worktree(cfg.openms_repo, sha,
                                  Path(f"{sha[:12]}.worktree"))
-    image = build_image(worktree, sha, cfg.threads)
+    image = build_image(worktree, sha, cfg.threads, cfg.build_timeout_s)
 
     workflows = discover_workflows(cfg.workflows_dir)
     datasets = discover_datasets(cfg.datasets_dir)

@@ -1,7 +1,33 @@
+import re
 from pathlib import Path
 
 from bench.datasets import load_dataset
-from bench.run import write_design_tsv
+from bench.run import write_design_tsv, _container_name
+
+
+def test_container_name_sanitizes():
+    sha = "a" * 40
+    name = _container_name(sha, "lfq-sage", "proteobench_module2")
+    assert name.startswith("bench-aaaaaaaaaaaa-")
+    # Only allowed chars: alphanumeric, underscore, dot, hyphen
+    assert not re.search(r"[^A-Za-z0-9_.\-]", name), (
+        f"container name has invalid chars: {name!r}"
+    )
+    assert len(name) <= 120
+
+
+def test_container_name_replaces_slashes():
+    name = _container_name("b" * 40, "my/workflow", "some/dataset")
+    assert "/" not in name
+    assert not re.search(r"[^A-Za-z0-9_.\-]", name), (
+        f"container name has invalid chars: {name!r}"
+    )
+
+
+def test_container_name_truncates():
+    long_wf = "w" * 200
+    name = _container_name("c" * 40, long_wf, "ds")
+    assert len(name) <= 120
 
 
 def test_design_tsv_maps_conditions(tmp_path: Path):

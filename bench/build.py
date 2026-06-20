@@ -21,11 +21,12 @@ def _ensure_thirdparty(worktree: Path) -> None:
     subprocess.run(
         ["git", "-C", str(worktree), "submodule", "update",
          "--init", "--depth", "1", "THIRDPARTY"],
-        check=True,
+        check=True, timeout=1800,
     )
 
 
-def build_image(worktree: Path, sha: str, threads: int) -> str:
+def build_image(worktree: Path, sha: str, threads: int,
+                build_timeout: int = 10800) -> str:
     worktree = Path(worktree)
     tag = f"openms-bench:{sha[:12]}"
     if _image_exists(tag):
@@ -35,13 +36,17 @@ def build_image(worktree: Path, sha: str, threads: int) -> str:
         raise FileNotFoundError(
             f"{dockerfile} missing — this ref cannot be containerized")
     _ensure_thirdparty(worktree)
-    subprocess.run(
-        ["docker", "build",
-         "-f", str(dockerfile),
-         "--target", "tools-thirdparty",
-         "--build-arg", f"NUM_BUILD_CORES={threads}",
-         "-t", tag,
-         str(worktree)],
-        check=True,
-    )
+    try:
+        subprocess.run(
+            ["docker", "build",
+             "-f", str(dockerfile),
+             "--target", "tools-thirdparty",
+             "--build-arg", f"NUM_BUILD_CORES={threads}",
+             "-t", tag,
+             str(worktree)],
+            check=True, timeout=build_timeout,
+        )
+    except subprocess.TimeoutExpired as e:
+        raise RuntimeError(
+            f"docker build exceeded {build_timeout}s for {tag}") from e
     return tag

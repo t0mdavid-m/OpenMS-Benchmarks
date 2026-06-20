@@ -1,3 +1,4 @@
+import re
 import subprocess
 import time
 from dataclasses import dataclass
@@ -11,6 +12,11 @@ from bench.workflows import Workflow
 def _host_path(p: Path) -> str:
     """Docker Desktop on Windows wants forward-slash host paths in -v mounts."""
     return str(Path(p).resolve()).replace("\\", "/")
+
+
+def _container_name(sha: str, workflow: str, dataset: str) -> str:
+    raw = f"bench-{sha[:12]}-{workflow}-{dataset}"
+    return re.sub(r"[^A-Za-z0-9_.-]", "-", raw)[:120]
 
 
 @dataclass
@@ -55,8 +61,10 @@ def run_workflow(image: str, workflow: Workflow, dataset: Dataset,
         f'cat /sys/fs/cgroup/memory.peak > /out/peak_mem_bytes.txt 2>/dev/null || '
         f'echo "" > /out/peak_mem_bytes.txt; exit $rc'
     )
+    name = _container_name(image.split(":")[-1], workflow.name, dataset.name)
     cmd = [
         "docker", "run", "--rm",
+        "--name", name,
         "-v", f"{_host_path(workflows_dir)}:/work:ro",
         "-v", f"{_host_path(data_dir)}:/data:ro",
         "-v", f"{_host_path(out_dir)}:/out",
@@ -71,7 +79,14 @@ def run_workflow(image: str, workflow: Workflow, dataset: Dataset,
         image, "bash", "-c", inner,
     ]
     start = time.monotonic()
-    proc = subprocess.run(cmd)
+    try:
+        proc = subprocess.run(cmd, timeout=config.run_timeout_s)
+        returncode = proc.returncode
+    except subprocess.TimeoutExpired:
+        subprocess.run(["docker", "kill", name], capture_output=True)
+        wall = time.monotonic() - start
+        return RunResult(out_dir=out_dir, wall_clock_s=wall,
+                         peak_mem_bytes=None, returncode=124)
     wall = time.monotonic() - start
 
     peak: float | None = None
@@ -83,4 +98,4 @@ def run_workflow(image: str, workflow: Workflow, dataset: Dataset,
         except ValueError:
             peak = None
     return RunResult(out_dir=out_dir, wall_clock_s=wall,
-                     peak_mem_bytes=peak, returncode=proc.returncode)
+                     peak_mem_bytes=peak, returncode=returncode)

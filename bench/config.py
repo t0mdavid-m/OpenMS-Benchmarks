@@ -17,6 +17,9 @@ class Config:
     rsync_host: str | None
     rsync_port: int | None
     rsync_key: str | None
+    http_timeout_s: int
+    build_timeout_s: int
+    run_timeout_s: int
 
 
 def load_config(path: Path) -> Config:
@@ -41,4 +44,7 @@ def load_config(path: Path) -> Config:
         rsync_host=rsync.get("host"),
         rsync_port=rsync.get("port"),
         rsync_key=rsync.get("key"),
+        http_timeout_s=int(data.get("http_timeout_s", 120)),
+        build_timeout_s=int(data.get("build_timeout_s", 10800)),
+        run_timeout_s=int(data.get("run_timeout_s", 7200)),
     )
