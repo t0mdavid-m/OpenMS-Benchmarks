@@ -3,7 +3,7 @@ from pathlib import Path
 
 import pytest
 
-from bench.fetch import sha256_file, verify_or_raise, _rewrite_manifest
+from bench.fetch import sha256_file, verify_or_raise, _rewrite_manifest, _decompress_gz
 
 
 def test_sha256_file(tmp_path: Path):
@@ -25,6 +25,20 @@ def test_verify_skips_when_pending(tmp_path: Path):
     f = tmp_path / "x.bin"
     f.write_bytes(b"hello")
     verify_or_raise(f, "PENDING")  # PENDING means "not pinned yet": no raise
+
+
+def test_decompress_gz(tmp_path):
+    import gzip
+    from bench.fetch import _decompress_gz
+    raw = b"hello mzml content"
+    gz = tmp_path / "x.mzML.gz"
+    with gzip.open(gz, "wb") as fh:
+        fh.write(raw)
+    out = _decompress_gz(gz)
+    assert out.name == "x.mzML"
+    assert out.read_bytes() == raw
+    # idempotent: second call returns same file, no error
+    assert _decompress_gz(gz).read_bytes() == raw
 
 
 def test_rewrite_manifest_pins_pending_and_preserves_columns(tmp_path: Path):

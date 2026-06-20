@@ -1,6 +1,8 @@
 import csv
+import gzip
 import hashlib
 import os
+import shutil
 import ssl
 import subprocess
 import urllib.request
@@ -8,6 +10,18 @@ from pathlib import Path
 
 from bench.config import Config
 from bench.datasets import Dataset, FileEntry
+
+
+def _decompress_gz(path: Path) -> Path:
+    """Decompress a .gz file to its sibling without the .gz suffix (idempotent)."""
+    out = path.with_name(path.name[:-3])  # strip ".gz"
+    if out.exists():
+        return out
+    tmp = out.with_name(out.name + ".tmp")
+    with gzip.open(path, "rb") as fin, tmp.open("wb") as fout:
+        shutil.copyfileobj(fin, fout, length=1 << 20)
+    os.replace(tmp, out)
+    return out
 
 
 def sha256_file(path: Path) -> str:
@@ -72,6 +86,10 @@ def fetch_dataset(dataset: Dataset, config: Config) -> Path:
 
     if pinned:
         _rewrite_manifest(dataset.path / "manifest.tsv", pinned)
+
+    for entry in dataset.spectra():
+        if entry.filename.endswith(".gz"):
+            _decompress_gz(cache / entry.filename)
     return cache
 
 

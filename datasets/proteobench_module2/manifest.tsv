@@ -1,8 +1,8 @@
 filename	role	condition	replicate	sha256
-LFQ_Orbitrap_DDA_Condition_A_Sample_Alpha_01.mzML	spectra	A	1	PENDING
-LFQ_Orbitrap_DDA_Condition_A_Sample_Alpha_02.mzML	spectra	A	2	PENDING
-LFQ_Orbitrap_DDA_Condition_A_Sample_Alpha_03.mzML	spectra	A	3	PENDING
-LFQ_Orbitrap_DDA_Condition_B_Sample_Alpha_01.mzML	spectra	B	1	PENDING
-LFQ_Orbitrap_DDA_Condition_B_Sample_Alpha_02.mzML	spectra	B	2	PENDING
-LFQ_Orbitrap_DDA_Condition_B_Sample_Alpha_03.mzML	spectra	B	3	PENDING
+LFQ_Orbitrap_DDA_Condition_A_Sample_Alpha_01.mzML.gz	spectra	A	1	PENDING
+LFQ_Orbitrap_DDA_Condition_A_Sample_Alpha_02.mzML.gz	spectra	A	2	PENDING
+LFQ_Orbitrap_DDA_Condition_A_Sample_Alpha_03.mzML.gz	spectra	A	3	PENDING
+LFQ_Orbitrap_DDA_Condition_B_Sample_Alpha_01.mzML.gz	spectra	B	1	PENDING
+LFQ_Orbitrap_DDA_Condition_B_Sample_Alpha_02.mzML.gz	spectra	B	2	PENDING
+LFQ_Orbitrap_DDA_Condition_B_Sample_Alpha_03.mzML.gz	spectra	B	3	PENDING
 ProteoBenchFASTA_MixedSpecies_HYE.fasta	fasta			d9ac434d88492c10c8e9a587ee7dbc9480fa0995fa07a6ba35a7da8abf39aa25

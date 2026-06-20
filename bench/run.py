@@ -30,8 +30,9 @@ def write_design_tsv(dataset: Dataset, data_dir: Path, dest: Path) -> None:
              "Sample\tMSstats_Condition\tMSstats_BioReplicate"]
     for i, entry in enumerate(dataset.spectra(), start=1):
         cond, rep = cond_of[entry.filename]
-        # In-container path is /data/<filename>.
-        path = f"/data/{entry.filename}"
+        # In-container path is /data/<filename> (decompressed, .gz stripped).
+        consumed = entry.filename[:-3] if entry.filename.endswith(".gz") else entry.filename
+        path = f"/data/{consumed}"
         lines.append(f"{i}\t1\t{path}\t1\t{i}\t{cond}\t{cond}_{rep}")
     dest.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
