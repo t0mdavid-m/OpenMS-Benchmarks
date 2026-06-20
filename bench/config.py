@@ -12,15 +12,21 @@ class Config:
     datasets_dir: Path
     threads: int
     http_base: str
+    verify_tls: bool
     rsync_user: str | None
     rsync_host: str | None
     rsync_port: int | None
     rsync_key: str | None
+    http_timeout_s: int
+    build_timeout_s: int
+    run_timeout_s: int
 
 
 def load_config(path: Path) -> Config:
-    data = tomllib.loads(Path(path).read_text(encoding="utf-8"))
-    root = Path(path).resolve().parent
+    path = Path(path)
+    with path.open("rb") as fh:
+        data = tomllib.load(fh)
+    root = path.resolve().parent
     rsync = data.get("rsync", {})
     return Config(
         openms_repo=Path(data.get("openms_repo", "OpenMS")),
@@ -33,8 +39,12 @@ def load_config(path: Path) -> Config:
             "http_base",
             "https://archive.openms.org/openms/benchmarks/pride-benchmarks/",
         ),
+        verify_tls=bool(data.get("verify_tls", True)),
         rsync_user=rsync.get("user"),
         rsync_host=rsync.get("host"),
         rsync_port=rsync.get("port"),
         rsync_key=rsync.get("key"),
+        http_timeout_s=int(data.get("http_timeout_s", 120)),
+        build_timeout_s=int(data.get("build_timeout_s", 10800)),
+        run_timeout_s=int(data.get("run_timeout_s", 7200)),
     )
