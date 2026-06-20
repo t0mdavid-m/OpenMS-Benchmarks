@@ -5,3 +5,6 @@ config.toml
 __pycache__/
 results/results.tsv
 OpenMS/
+results/
+.venv/
+.venv-test/
