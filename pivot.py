@@ -22,7 +22,8 @@ def pivot(rows: list[dict]) -> tuple[list[str], list[dict]]:
 
 def main() -> int:
     src = Path(sys.argv[1]) if len(sys.argv) > 1 else Path("results/results.tsv")
-    rows = list(csv.DictReader(src.open(encoding="utf-8"), delimiter="\t"))
+    with src.open(encoding="utf-8") as fh:
+        rows = list(csv.DictReader(fh, delimiter="\t"))
     cols, wide = pivot(rows)
     w = csv.DictWriter(sys.stdout, fieldnames=cols, delimiter="\t",
                        extrasaction="ignore")

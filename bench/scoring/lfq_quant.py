@@ -17,7 +17,8 @@ def score(out_dir: Path, dataset: Dataset) -> list[Metric]:
         lambda: defaultdict(list))
     # precursor key -> set of species (to drop cross-species)
     prec_species: dict[tuple[str, str], set[str]] = defaultdict(set)
-    proteins_seen: set[str] = set()
+    # precursor key -> set of proteins (to count only quantified)
+    prec_proteins: dict[tuple[str, str], set[str]] = defaultdict(set)
 
     with (Path(out_dir) / "quant.tsv").open(encoding="utf-8") as fh:
         for row in csv.DictReader(fh, delimiter="\t"):
@@ -33,11 +34,12 @@ def score(out_dir: Path, dataset: Dataset) -> list[Metric]:
             key = (row["precursor"], row["charge"])
             prec_species[key].add(sp)
             inten[key][row["condition"]].append(intensity)
-            proteins_seen.add(row["protein"])
+            prec_proteins[key].add(row["protein"])
 
     per_species_log2: dict[str, list[float]] = defaultdict(list)
     cv_values: list[float] = []
     n_quant = 0
+    quantified_proteins: set[str] = set()
 
     for key, conds in inten.items():
         species = prec_species[key]
@@ -49,6 +51,7 @@ def score(out_dir: Path, dataset: Dataset) -> list[Metric]:
         if not a or not b:
             continue  # require quant in both conditions
         n_quant += 1
+        quantified_proteins |= prec_proteins[key]
         mean_a = statistics.fmean(a)
         mean_b = statistics.fmean(b)
         per_species_log2[sp].append(math.log2(mean_a / mean_b))
@@ -60,7 +63,7 @@ def score(out_dir: Path, dataset: Dataset) -> list[Metric]:
 
     metrics: list[Metric] = [
         ("num_precursors_quantified", float(n_quant), "count"),
-        ("num_proteins", float(len(proteins_seen)), "count"),
+        ("num_proteins", float(len(quantified_proteins)), "count"),
     ]
     all_errors: list[float] = []
     for sp, observed in sorted(per_species_log2.items()):

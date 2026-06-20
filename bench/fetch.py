@@ -57,7 +57,7 @@ def _fetch_http(entry: FileEntry, dest: Path, verify_tls: bool = True,
 
 def _fetch_rsync(entry: FileEntry, dest: Path, cfg: Config) -> None:
     remote = f"{cfg.rsync_user}@{cfg.rsync_host}:{entry.rsync_path}"
-    ssh = (f"ssh -i {cfg.rsync_key} -p {cfg.rsync_port} "
+    ssh = (f"ssh -i '{cfg.rsync_key}' -p {cfg.rsync_port} "
            f"-o StrictHostKeyChecking=no -o BatchMode=yes")
     subprocess.run(
         ["rsync", "-avz", f"--timeout={cfg.http_timeout_s}", "-e", ssh,

@@ -26,7 +26,6 @@ def test_matrix_pairs_by_category():
 
 def test_matrix_skips_mismatched_category(tmp_path: Path):
     from bench.workflows import Workflow
-    from bench.datasets import Dataset, GroundTruth
     wf = Workflow(name="dia-x", engine="x", type="dia-quant",
                   applies_to="dia", run_script=tmp_path / "run.sh", dir=tmp_path)
     ds = load_dataset(Path("datasets/proteobench_module2"))  # lfq

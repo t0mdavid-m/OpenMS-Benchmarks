@@ -92,3 +92,19 @@ def test_lfq_quant_overall_error_across_species(tmp_path: Path):
     assert metrics["num_precursors_quantified"] == 2
     # overall = mean of per-precursor errors = mean(0, 1) = 0.5
     assert abs(metrics["mean_abs_error_overall"] - 0.5) < 1e-9
+
+
+def test_num_proteins_counts_only_quantified(tmp_path: Path):
+    ds = load_dataset(Path("datasets/proteobench_module2"))
+    rows = []
+    # Quantified HUMAN precursor (A and B present)
+    for rep in (1, 2, 3):
+        rows.append(("HPEP", 2, "sp|P1|ALB_HUMAN", "A", rep, 1000))
+        rows.append(("HPEP", 2, "sp|P1|ALB_HUMAN", "B", rep, 1000))
+    # Protein present only via an A-only precursor -> not quantified -> not counted
+    for rep in (1, 2, 3):
+        rows.append(("APEP", 2, "sp|P9|XXX_HUMAN", "A", rep, 1000))
+    _write_quant(tmp_path, rows)
+    metrics = dict((m[0], m[1]) for m in get_scorer("lfq-quant")(tmp_path, ds))
+    assert metrics["num_precursors_quantified"] == 1
+    assert metrics["num_proteins"] == 1  # only ALB_HUMAN, not XXX_HUMAN
