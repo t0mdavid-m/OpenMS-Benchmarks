@@ -14,7 +14,28 @@ DB_FASTA="$WORK/db_with_decoys.fasta"
 DecoyDatabase -in "$FASTA" -out "$DB_FASTA" \
   -decoy_string DECOY_ -decoy_string_position prefix -enzyme Trypsin
 
-# 2) Per-file search (engine-specific) -> idXML, then index + PSM-level FDR.
+# 2) Per-file ID processing. The default chain computes PEP, filters at 1% PSM FDR,
+#    and restores PEP as the main score (ProteomicsLFQ requires PEP). An engine's run.sh
+#    may override prepare_ids() BEFORE sourcing this file (e.g. ProSE, whose score
+#    IDPosteriorErrorProbability cannot model). Contract:
+#      prepare_ids RAW_SEARCH_IDXML OUT_IDXML
+#    -> OUT_IDXML has 1%-FDR PSMs with 'Posterior Error Probability' as the main score.
+prepare_ids_default() {
+  local raw="$1" out="$2" b="${1%.idXML}"
+  PeptideIndexer -in "$raw" -fasta "$DB_FASTA" -out "${b}.idx.idXML" \
+    -decoy_string DECOY_ -decoy_string_position prefix -missing_decoy_action warn
+  IDPosteriorErrorProbability -in "${b}.idx.idXML" -out "${b}.pep.idXML"
+  FalseDiscoveryRate -in "${b}.pep.idXML" -out "${b}.fdr.idXML" \
+    -PSM true -protein false -threads "$THREADS"
+  IDFilter -in "${b}.fdr.idXML" -out "${b}.filt.idXML" -score:psm 0.01
+  IDScoreSwitcher -in "${b}.filt.idXML" -out "$out" \
+    -new_score "Posterior Error Probability_score" \
+    -new_score_orientation lower_better -new_score_type "Posterior Error Probability"
+}
+if ! declare -F prepare_ids >/dev/null; then
+  prepare_ids() { prepare_ids_default "$@"; }
+fi
+
 mkdir -p "$WORK/idxml"
 FILTERED_IDS=()
 QUANT_MZML=()
@@ -27,34 +48,9 @@ fi
 for mz in "${mzml_files[@]}"; do
   base="$(basename "$mz" .mzML)"
   raw_id="$WORK/idxml/${base}.idXML"
-  run_search "$mz" "$DB_FASTA" "$raw_id"            # defined by run.sh
-
-  PeptideIndexer -in "$raw_id" -fasta "$DB_FASTA" \
-    -out "$WORK/idxml/${base}.idx.idXML" \
-    -decoy_string DECOY_ -decoy_string_position prefix \
-    -missing_decoy_action warn
-
-  # Posterior Error Probability — ProteomicsLFQ requires PEP as the main score.
-  IDPosteriorErrorProbability -in "$WORK/idxml/${base}.idx.idXML" \
-    -out "$WORK/idxml/${base}.pep.idXML"
-
-  # PSM-level q-value FDR (protein inference is ProteomicsLFQ's job).
-  FalseDiscoveryRate -in "$WORK/idxml/${base}.pep.idXML" \
-    -out "$WORK/idxml/${base}.fdr.idXML" \
-    -PSM true -protein false -threads "$THREADS"
-
-  # Filter at 1% PSM FDR (main score is the q-value here).
-  IDFilter -in "$WORK/idxml/${base}.fdr.idXML" \
-    -out "$WORK/idxml/${base}.filt.idXML" -score:psm 0.01
-
-  # Restore PEP (stored as a meta value by FDR) as the main score for ProteomicsLFQ.
-  IDScoreSwitcher -in "$WORK/idxml/${base}.filt.idXML" \
-    -out "$WORK/idxml/${base}.pepscore.idXML" \
-    -new_score "Posterior Error Probability_score" \
-    -new_score_orientation lower_better \
-    -new_score_type "Posterior Error Probability"
-
-  FILTERED_IDS+=("$WORK/idxml/${base}.pepscore.idXML")
+  run_search "$mz" "$DB_FASTA" "$raw_id"                       # defined by run.sh
+  prepare_ids "$raw_id" "$WORK/idxml/${base}.final.idXML"      # default or engine override
+  FILTERED_IDS+=("$WORK/idxml/${base}.final.idXML")
   QUANT_MZML+=("$mz")
 done
 
