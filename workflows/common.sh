@@ -39,7 +39,7 @@ for mz in "${mzml_files[@]}"; do
     -PSM true -protein false -threads "$THREADS"
 
   IDFilter -in "$WORK/idxml/${base}.fdr.idXML" \
-    -out "$WORK/idxml/${base}.filt.idXML" -score:pep 0.01
+    -out "$WORK/idxml/${base}.filt.idXML" -score:psm 0.01
 
   FILTERED_IDS+=("$WORK/idxml/${base}.filt.idXML")
   QUANT_MZML+=("$mz")
