@@ -1,0 +1,8 @@
+# Files consumed inside the Linux container / by the harness MUST stay LF,
+# regardless of host OS — CRLF would break bash scripts and parsing.
+*.sh    text eol=lf
+*.yaml  text eol=lf
+*.yml   text eol=lf
+*.tsv   text eol=lf
+*.py    text eol=lf
+*.toml  text eol=lf
