@@ -65,3 +65,10 @@ def test_checkout_worktree_relative_dest_resolved_absolute(tiny_repo: Path, tmp_
     assert returned.is_absolute()
     assert (workdir / "rel.worktree" / "f.txt").read_text(encoding="utf-8") == "hi"
     assert not (tiny_repo / "rel.worktree").exists()
+
+
+def test_resolve_ref_local_first_ignores_unreachable_remote(tiny_repo: Path):
+    # A bogus, unreachable remote must NOT block resolving a LOCAL ref.
+    _git(tiny_repo, "remote", "add", "origin", "git@example.invalid:nope/nope.git")
+    sha = resolve_ref(tiny_repo, "main")  # resolves locally, no fetch needed
+    assert len(sha) == 40

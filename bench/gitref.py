@@ -1,3 +1,4 @@
+import os
 import shutil
 import subprocess
 from pathlib import Path
@@ -13,13 +14,26 @@ def _git(repo: Path, *args: str) -> str:
 def resolve_ref(repo: Path, ref: str) -> str:
     """Resolve a branch name or SHA to a full 40-char commit SHA.
 
-    Fetches first so remote branches/PR refs are available.
+    Resolves locally first to avoid unnecessary network fetches and the
+    interactive-prompt hangs they can cause in non-interactive shells (e.g.
+    an ssh host-key or credential prompt with no TTY). Only when the ref is
+    not present locally does it fetch — bounded by a timeout and forced
+    non-interactive so it can never hang.
     """
     repo = Path(repo)
     try:
-        _git(repo, "fetch", "--all", "--tags", "--quiet")
+        return _git(repo, "rev-parse", "--verify", f"{ref}^{{commit}}")
     except subprocess.CalledProcessError:
-        pass  # offline: fall back to whatever objects are local
+        pass
+    env = {**os.environ, "GIT_SSH_COMMAND":
+           "ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new -o ConnectTimeout=15"}
+    try:
+        subprocess.run(
+            ["git", "-C", str(repo), "fetch", "--all", "--tags", "--quiet"],
+            check=False, timeout=180, env=env, capture_output=True, text=True,
+        )
+    except subprocess.TimeoutExpired:
+        pass
     return _git(repo, "rev-parse", "--verify", f"{ref}^{{commit}}")
 
 
