@@ -9,7 +9,7 @@ run_search() {
   MSGFPlusAdapter \
     -in "$mzml" -database "$db" -out "$out_id" \
     -executable MSGFPlus.jar \
-    -enzyme Trypsin -max_missed_cleavages 2 \
+    -enzyme Trypsin/P -max_missed_cleavages 2 \
     -instrument high_res \
     -fixed_modifications "Carbamidomethyl (C)" \
     -variable_modifications "Oxidation (M)" \
