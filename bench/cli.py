@@ -60,14 +60,23 @@ def main(argv: list[str] | None = None) -> int:
     args = ap.parse_args(argv)
 
     cfg = load_config(args.config)
-    sha = resolve_ref(cfg.openms_repo, args.ref)
+    try:
+        sha = resolve_ref(cfg.openms_repo, args.ref)
+    except Exception as e:
+        print(f"FATAL: could not resolve ref {args.ref!r}: {e}", file=sys.stderr)
+        return 1
     tag = args.ref
     timestamp = dt.datetime.now(dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     hcpu = host_cpu()
 
-    worktree = checkout_worktree(cfg.openms_repo, sha,
-                                 Path(f"{sha[:12]}.worktree"))
-    image = build_image(worktree, sha, cfg.threads, cfg.build_timeout_s)
+    try:
+        worktree = checkout_worktree(cfg.openms_repo, sha,
+                                     Path(f"{sha[:12]}.worktree"))
+        image = build_image(worktree, sha, cfg.threads, cfg.build_timeout_s)
+    except Exception as e:
+        print(f"FATAL: could not build image for {tag} ({sha[:12]}): {e}",
+              file=sys.stderr)
+        return 1
 
     workflows = discover_workflows(cfg.workflows_dir)
     datasets = discover_datasets(cfg.datasets_dir)
@@ -80,28 +89,46 @@ def main(argv: list[str] | None = None) -> int:
         return 1
 
     fetched: dict[str, Path] = {}
+    failures = 0
     for wf, ds in pairs:
-        if ds.name not in fetched:
-            fetched[ds.name] = fetch_dataset(ds, cfg)
-        data_dir = fetched[ds.name]
-        out_dir = Path("results") / "runs" / sha[:12] / wf.name / ds.name
-        result = run_workflow(image, wf, ds, data_dir, out_dir, cfg)
         identity = build_identity(sha=sha, tag=tag, workflow=wf,
                                   dataset_name=ds.name, instrument=ds.instrument,
                                   threads=cfg.threads, host_cpu=hcpu,
                                   timestamp=timestamp)
-        metrics = []
-        if result.returncode == 0:
-            metrics = list(get_scorer(wf.type)(out_dir, ds))
-        metrics.append(("wall_clock_s", result.wall_clock_s, "s"))
-        if result.peak_mem_bytes is not None:
-            metrics.append(("peak_container_mem_bytes",
-                            result.peak_mem_bytes, "bytes"))
-        metrics.append(("workflow_returncode", float(result.returncode), "code"))
-        append_rows(cfg.results_tsv, identity, metrics)
-        print(f"[{wf.name} x {ds.name}] rc={result.returncode} "
-              f"wall={result.wall_clock_s:.1f}s", file=sys.stderr)
-    return 0
+        try:
+            if ds.name not in fetched:
+                fetched[ds.name] = fetch_dataset(ds, cfg)
+            data_dir = fetched[ds.name]
+            out_dir = Path("results") / "runs" / sha[:12] / wf.name / ds.name
+            result = run_workflow(image, wf, ds, data_dir, out_dir, cfg)
+            metrics = []
+            if result.returncode == 0:
+                try:
+                    metrics = list(get_scorer(wf.type)(out_dir, ds))
+                except Exception as se:
+                    print(f"[{wf.name} x {ds.name}] scoring failed: "
+                          f"{type(se).__name__}: {se}", file=sys.stderr)
+                    metrics = [("scoring_failed", 1.0, "bool")]
+            metrics.append(("wall_clock_s", result.wall_clock_s, "s"))
+            if result.peak_mem_bytes is not None:
+                metrics.append(("peak_container_mem_bytes",
+                                result.peak_mem_bytes, "bytes"))
+            metrics.append(("workflow_returncode", float(result.returncode), "code"))
+            append_rows(cfg.results_tsv, identity, metrics)
+            print(f"[{wf.name} x {ds.name}] rc={result.returncode} "
+                  f"wall={result.wall_clock_s:.1f}s", file=sys.stderr)
+            if result.returncode != 0:
+                failures += 1
+        except Exception as e:
+            failures += 1
+            print(f"[{wf.name} x {ds.name}] FAILED: {type(e).__name__}: {e}",
+                  file=sys.stderr)
+            try:
+                append_rows(cfg.results_tsv, identity, [("run_failed", 1.0, "bool")])
+            except Exception:
+                pass
+            continue
+    return 1 if failures else 0
 
 
 if __name__ == "__main__":
