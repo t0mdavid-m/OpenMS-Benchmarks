@@ -35,7 +35,8 @@ for mz in "${mzml_files[@]}"; do
     -missing_decoy_action warn
 
   FalseDiscoveryRate -in "$WORK/idxml/${base}.idx.idXML" \
-    -out "$WORK/idxml/${base}.fdr.idXML" -threads "$THREADS"
+    -out "$WORK/idxml/${base}.fdr.idXML" \
+    -PSM true -protein false -threads "$THREADS"
 
   IDFilter -in "$WORK/idxml/${base}.fdr.idXML" \
     -out "$WORK/idxml/${base}.filt.idXML" -score:pep 0.01
