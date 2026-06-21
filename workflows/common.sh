@@ -47,9 +47,17 @@ prepare_ids_percolator() {
   PercolatorAdapter -in "${b}.feat.idXML" -out "${b}.perc.idXML" \
     -post_processing_tdc -score_type q-value -threads "$THREADS"
   IDFilter -in "${b}.perc.idXML" -out "${b}.filt.idXML" -score:psm 0.01
-  IDScoreSwitcher -in "${b}.filt.idXML" -out "$out" \
+  IDScoreSwitcher -in "${b}.filt.idXML" -out "${b}.pep.idXML" \
     -new_score "MS:1001493" -new_score_orientation lower_better \
     -new_score_type "Posterior Error Probability"
+  # The Percolator/PSMFeatureExtractor meta values (charge2..5, enzN/enzC/enzInt,
+  # isotope_error, percolator_score/q_value/pep, feature lists, ...) are dead weight after
+  # rescoring AND trip a ProteomicsLFQ bug in this branch that throws on the first NON-string
+  # PSM meta it stringifies ("Could not convert non-string DataValue of type 'Int'/'Double'/
+  # 'DoubleList' ... to string"). Strip every non-string UserParam (int/float and their list
+  # forms); scalar string metas (target_decoy) and the PEP main score (a hit attribute) stay.
+  sed -E 's#<UserParam type="(int|float|intList|floatList|stringList)" name="[^"]*" value="[^"]*"/>##g' \
+    "${b}.pep.idXML" > "$out"
 }
 
 # Backend selection. FDR_BACKEND=percolator routes through the Percolator path above
