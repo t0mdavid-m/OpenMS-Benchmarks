@@ -1,32 +1,15 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# ProSE (native OpenMS engine). ProSE is integrated: it reuses the shared DECOY_ decoys
-# (-Search:decoys auto) and computes its OWN 1% PSM-level q-value FDR (-Search:FDR:PSM 0.01),
-# so its output is already FDR-filtered with a 'q-value' main score.
-run_search() {
-  local mzml="$1" db="$2" out_id="$3"
-  ProSE \
-    -in "$mzml" -database "$db" -out_idxml "$out_id" \
-    -Search:enzyme Trypsin \
-    -Search:peptide:missed_cleavages 2 \
-    -Search:modifications:fixed "Carbamidomethyl (C)" \
-    -Search:modifications:variable "Oxidation (M)" \
-    -Search:precursor:mass_tolerance_lower "${PREC_TOL_PPM}" \
-    -Search:precursor:mass_tolerance_upper "${PREC_TOL_PPM}" \
-    -Search:precursor:mass_tolerance_unit ppm \
-    -Search:fragment:mass_tolerance "${FRAG_TOL_DA}" \
-    -Search:fragment:mass_tolerance_unit Da \
-    -Search:decoys auto -Search:decoy_prefix DECOY_ \
-    -Search:FDR:PSM 0.01 \
-    -threads "$THREADS"
-}
+# shellcheck source=/dev/null
+source "$(dirname "$0")/../lib/search-prose.sh"   # defines run_search()
 
 # Override common.sh's default ID-prep: IDPosteriorErrorProbability does NOT support ProSE,
 # so (per the chosen methodology) we relabel ProSE's own q-value as the 'Posterior Error
 # Probability' score ProteomicsLFQ requires. Two IDScoreSwitcher passes: (1) move the q-value
 # main score aside into a meta, promoting hyperscore; (2) promote that stashed q-value back to
 # the main score, typed as 'Posterior Error Probability'. Values are unchanged.
+# (The lfq-prose-perc variant skips this and re-scores via PercolatorAdapter instead.)
 prepare_ids() {
   local raw="$1" out="$2" b="${1%.idXML}"
   PeptideIndexer -in "$raw" -fasta "$DB_FASTA" -out "${b}.idx.idXML" \

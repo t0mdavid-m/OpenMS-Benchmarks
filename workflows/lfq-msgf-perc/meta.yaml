@@ -1,0 +1,5 @@
+name: lfq-msgf-perc
+engine: msgf
+type: lfq-quant
+applies_to: lfq
+description: Label-free DDA quantification with MS-GF+, FDR via PercolatorAdapter (generic features) for strict cross-engine comparison.

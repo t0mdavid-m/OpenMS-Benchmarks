@@ -32,7 +32,32 @@ prepare_ids_default() {
     -new_score "Posterior Error Probability_score" \
     -new_score_orientation lower_better -new_score_type "Posterior Error Probability"
 }
-if ! declare -F prepare_ids >/dev/null; then
+# Percolator FDR path (strict cross-engine footing for the engines OpenMS supports).
+# PSMFeatureExtractor adds the engine-specific features Percolator needs to discriminate
+# (generic features alone collapse every PSM into one PEP bin). PSMFeatureExtractor only
+# supports Comet, X!Tandem and MSGF+ -- so this backend is only wired to lfq-comet-perc
+# and lfq-msgf-perc. PercolatorAdapter rescores with target-decoy competition; the main
+# score becomes the Percolator q-value, on which we filter at 1% PSM FDR. Finally we
+# promote Percolator's PEP (meta 'MS:1001493') to the main score ProteomicsLFQ requires.
+prepare_ids_percolator() {
+  local raw="$1" out="$2" b="${1%.idXML}"
+  PeptideIndexer -in "$raw" -fasta "$DB_FASTA" -out "${b}.idx.idXML" \
+    -decoy_string DECOY_ -decoy_string_position prefix -missing_decoy_action warn
+  PSMFeatureExtractor -in "${b}.idx.idXML" -out "${b}.feat.idXML" -threads "$THREADS"
+  PercolatorAdapter -in "${b}.feat.idXML" -out "${b}.perc.idXML" \
+    -post_processing_tdc -score_type q-value -threads "$THREADS"
+  IDFilter -in "${b}.perc.idXML" -out "${b}.filt.idXML" -score:psm 0.01
+  IDScoreSwitcher -in "${b}.filt.idXML" -out "$out" \
+    -new_score "MS:1001493" -new_score_orientation lower_better \
+    -new_score_type "Posterior Error Probability"
+}
+
+# Backend selection. FDR_BACKEND=percolator routes through the Percolator path above
+# (used by the -perc workflow variants). Default (idpep) keeps the per-engine behavior:
+# engine override if defined, else the IDPosteriorErrorProbability default.
+if [[ "${FDR_BACKEND:-idpep}" == "percolator" ]]; then
+  prepare_ids() { prepare_ids_percolator "$@"; }
+elif ! declare -F prepare_ids >/dev/null; then
   prepare_ids() { prepare_ids_default "$@"; }
 fi
 
