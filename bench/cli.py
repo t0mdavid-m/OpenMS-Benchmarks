@@ -2,6 +2,7 @@ import argparse
 import datetime as dt
 import platform
 import sys
+import traceback
 from pathlib import Path
 
 from bench.build import build_image
@@ -99,7 +100,8 @@ def main(argv: list[str] | None = None) -> int:
             if ds.name not in fetched:
                 fetched[ds.name] = fetch_dataset(ds, cfg)
             data_dir = fetched[ds.name]
-            out_dir = Path("results") / "runs" / sha[:12] / wf.name / ds.name
+            out_dir = (cfg.results_tsv.parent / "runs" / sha[:12]
+                       / wf.name / ds.name)
             result = run_workflow(image, wf, ds, data_dir, out_dir, cfg)
             metrics = []
             if result.returncode == 0:
@@ -123,6 +125,7 @@ def main(argv: list[str] | None = None) -> int:
             failures += 1
             print(f"[{wf.name} x {ds.name}] FAILED: {type(e).__name__}: {e}",
                   file=sys.stderr)
+            traceback.print_exc()
             try:
                 append_rows(cfg.results_tsv, identity, [("run_failed", 1.0, "bool")])
             except Exception:

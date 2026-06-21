@@ -1,0 +1,5 @@
+name: lfq-msgf
+engine: msgfplus
+type: lfq-quant
+applies_to: lfq
+description: Label-free DDA quantification using the MS-GF+ search engine.
