@@ -1,0 +1,12 @@
+# How each tool's container image is produced. The OpenMS `ref` is the high-level
+# version knob; `--openms-ref` on the CLI overrides it for a sweep.
+openms:
+  build:
+    context: OpenMS                  # vendored checkout = build-context source
+    dockerfile: dockerfiles/Dockerfile
+    target: tools-thirdparty
+    ref: main
+    build_args: {NUM_BUILD_CORES: 4}
+# Example external tool (pulled, pinned). Uncomment when its script exists.
+# fragpipe:
+#   pull: fragpipe:v21
