@@ -9,8 +9,16 @@ set -euo pipefail
 source "${WORK}/lib/emit.sh"
 
 # --- provisioning (NOT timed) -------------------------------------------------
+# The OpenMS image may already ship python3 but WITHOUT PyYAML, so check the
+# `yaml` module specifically, not just the interpreter. Installed from the
+# script (apt, pip fallback) so the image is never modified.
 if ! command -v python3 >/dev/null 2>&1; then
-  apt-get update -qq && apt-get install -y -qq python3 python3-yaml >/dev/null
+  apt-get update -qq && apt-get install -y -qq python3 >/dev/null
+fi
+if ! python3 -c "import yaml" >/dev/null 2>&1; then
+  { apt-get update -qq && apt-get install -y -qq python3-yaml >/dev/null; } \
+    || python3 -m pip install --quiet --no-input pyyaml \
+    || { echo "ERROR: could not provision PyYAML (need network + apt/pip)" >&2; exit 1; }
 fi
 
 SPEC="${INPUT_DIR}/spec.yaml"
