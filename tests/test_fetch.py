@@ -3,7 +3,7 @@ from pathlib import Path
 
 import pytest
 
-from bench.fetch import sha256_file, verify_or_raise, _rewrite_manifest, _decompress_gz
+from tools.fetch import sha256_file, verify_or_raise, _rewrite_manifest, _decompress_gz
 
 
 def test_sha256_file(tmp_path: Path):
@@ -29,7 +29,7 @@ def test_verify_skips_when_pending(tmp_path: Path):
 
 def test_decompress_gz(tmp_path):
     import gzip
-    from bench.fetch import _decompress_gz
+    from tools.fetch import _decompress_gz
     raw = b"hello mzml content"
     gz = tmp_path / "x.mzML.gz"
     with gzip.open(gz, "wb") as fh:

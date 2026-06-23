@@ -65,7 +65,7 @@ workflow script never hardcodes a path and the split stays honest.
 | mount `/work` *(ro)* | — | workflow scripts: `run.sh`, `common.sh`, `lib/` |
 | mount `/data` *(ro)* | `INPUT_DIR=/data` | dataset spectra + FASTA (cached, sha-verified) |
 | mount `/out` *(rw)* | `OUT_DIR=/out` | this run's `quant.tsv`, work dir, `design.tsv` |
-| env `FASTA` | `/data/<name>.fasta` | target protein database |
+| env `FASTA` | `/data/<fasta-filename>` | the manifest's target protein database |
 | env `PREC_TOL_PPM` / `FRAG_TOL_DA` | tolerances | from the dataset's ground truth |
 | env `THREADS` | fixed thread count | held constant for fair perf comparison |
 | env `OPENMS_BIN` | `/opt/OpenMS/bin` | where the TOPP tools live |
@@ -108,9 +108,11 @@ Probability` main score `ProteomicsLFQ` requires, and comes in three forms:
 - **`percolator`** — PSMFeatureExtractor → PercolatorAdapter → IDFilter → PEP. Only `lfq-comet-perc` and `lfq-msgf-perc` use it, because `PSMFeatureExtractor` supports only Comet / X!Tandem / MS-GF+.
 - **engine override** — our example, **ProSE**, replaces `prepare_ids()` entirely: `IDPosteriorErrorProbability` can't model ProSE scores, so it relabels ProSE's own q-value as PEP.
 
-Cross-engine fairness comes from keeping search params identical across engines (Trypsin,
-2 missed cleavages, fixed Carbamidomethyl(C), variable Oxidation(M), 1% PSM FDR, MBR off,
-top-3 protein quant); only the per-dataset tolerances vary.
+Cross-engine fairness comes from holding the search params identical across engines —
+Trypsin, 2 missed cleavages, fixed Carbamidomethyl(C), variable Oxidation(M), 1% PSM FDR,
+MBR off, top-3 protein quant — so only the per-dataset tolerances vary. The one
+adapter-level exception is **MS-GF+**, which uses `Trypsin/P` and takes its fragment
+tolerance from an `-instrument high_res` preset rather than the per-dataset `FRAG_TOL_DA`.
 
 ## What comes out
 
@@ -166,7 +168,7 @@ uv run python -m bench --ref <sha> --workflow lfq-prose --dataset proteobench_mo
    }
    ```
 2. `workflows/lfq-<engine>/` with a `meta.yaml` (`type: lfq-quant`, `applies_to: lfq`) and a
-   4-line `run.sh`:
+   tiny `run.sh`:
    ```bash
    #!/usr/bin/env bash
    set -euo pipefail
