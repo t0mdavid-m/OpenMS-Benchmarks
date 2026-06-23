@@ -1,0 +1,5 @@
+name: lfq-comet-perc
+engine: comet
+type: lfq-quant
+applies_to: lfq
+description: Label-free DDA quantification with Comet, FDR via PercolatorAdapter (generic features) for strict cross-engine comparison.
