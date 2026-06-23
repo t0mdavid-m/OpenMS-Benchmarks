@@ -1,70 +1,66 @@
-from pathlib import Path
+import textwrap
 
-from bench.config import load_config
+from bench.config import all_benchmarks, load_config
 
 
-def test_load_config_reads_values(tmp_path: Path):
-    cfg_file = tmp_path / "config.toml"
-    cfg_file.write_text(
-        'openms_repo = "OpenMS"\n'
-        'threads = 4\n'
-        'http_base = "https://archive.openms.org/openms/benchmarks/pride-benchmarks/"\n'
-        '[rsync]\n'
-        'user = "u"\n'
-        'host = "h"\n'
-        'port = 22\n'
-        'key = "k"\n',
-        encoding="utf-8",
-    )
-    cfg = load_config(cfg_file)
+def _write(tmp_path, name, body):
+    p = tmp_path / name
+    p.write_text(textwrap.dedent(body), encoding="utf-8")
+    return p
+
+
+def test_load_config_parses_images_and_benchmarks(tmp_path):
+    cfg_toml = _write(tmp_path, "config.toml", """
+        openms_repo = "OpenMS"
+        threads = 4
+        scripts_dir = "scripts"
+        results_dir = "results"
+    """)
+    images = _write(tmp_path, "images.yaml", """
+        openms:
+          build:
+            context: OpenMS
+            dockerfile: dockerfiles/Dockerfile
+            target: tools-thirdparty
+            ref: a5f59d4
+            build_args: {NUM_BUILD_CORES: 4}
+        fragpipe:
+          pull: fragpipe:v21
+    """)
+    benches = _write(tmp_path, "benchmarks.yaml", """
+        benchmark_types:
+          - name: DDA-LFQ
+            metrics:
+              - {name: mean_abs_error_overall, unit: log2, required: true}
+              - {name: "median_log2_ratio_*", unit: log2, required: false}
+              - {name: wall_clock_s, unit: s, required: true}
+            benchmarks:
+              - {name: comet, image: openms, run: openms/comet.sh, input: data/pb}
+              - {name: fragpipe, image: fragpipe, run: fragpipe/fragpipe.sh, input: data/pb}
+    """)
+    cfg = load_config(cfg_toml, images, benches)
     assert cfg.threads == 4
-    assert cfg.openms_repo == Path("OpenMS")
-    assert cfg.rsync_user == "u"
-    assert cfg.rsync_port == 22
-    assert cfg.http_base == "https://archive.openms.org/openms/benchmarks/pride-benchmarks/"
-    assert cfg.rsync_host == "h"
-    assert cfg.rsync_key == "k"
+    assert cfg.images["openms"].kind == "build"
+    assert cfg.images["openms"].ref == "a5f59d4"
+    assert cfg.images["openms"].build_args == {"NUM_BUILD_CORES": "4"}
+    assert cfg.images["fragpipe"].kind == "pull"
+    assert cfg.images["fragpipe"].pull_ref == "fragpipe:v21"
+
+    pairs = all_benchmarks(cfg)
+    assert [b.name for _, b in pairs] == ["comet", "fragpipe"]
+    bt = pairs[0][0]
+    assert bt.name == "DDA-LFQ"
+    assert any(m.name == "median_log2_ratio_*" and not m.required for m in bt.metrics)
+    assert pairs[1][1].image == "fragpipe"
 
 
-def test_load_config_rsync_optional(tmp_path: Path):
-    cfg_file = tmp_path / "config.toml"
-    cfg_file.write_text('openms_repo = "OpenMS"\nthreads = 2\n', encoding="utf-8")
-    cfg = load_config(cfg_file)
-    assert cfg.rsync_user is None
-    assert cfg.threads == 2
-    assert cfg.http_base.startswith("https://")
-
-
-def test_verify_tls_defaults_true_and_overridable(tmp_path):
-    from pathlib import Path
-    from bench.config import load_config
-    c1 = tmp_path / "a.toml"
-    c1.write_text('openms_repo = "OpenMS"\nthreads = 2\n', encoding="utf-8")
-    assert load_config(c1).verify_tls is True
-    c2 = tmp_path / "b.toml"
-    c2.write_text('openms_repo = "OpenMS"\nthreads = 2\nverify_tls = false\n', encoding="utf-8")
-    assert load_config(c2).verify_tls is False
-
-
-def test_timeout_defaults(tmp_path: Path):
-    cfg_file = tmp_path / "config.toml"
-    cfg_file.write_text('openms_repo = "OpenMS"\nthreads = 2\n', encoding="utf-8")
-    cfg = load_config(cfg_file)
-    assert cfg.http_timeout_s == 120
-    assert cfg.build_timeout_s == 10800
-    assert cfg.run_timeout_s == 7200
-
-
-def test_timeout_overridable(tmp_path: Path):
-    cfg_file = tmp_path / "config.toml"
-    cfg_file.write_text(
-        'openms_repo = "OpenMS"\nthreads = 2\n'
-        'http_timeout_s = 30\n'
-        'build_timeout_s = 600\n'
-        'run_timeout_s = 300\n',
-        encoding="utf-8",
-    )
-    cfg = load_config(cfg_file)
-    assert cfg.http_timeout_s == 30
-    assert cfg.build_timeout_s == 600
-    assert cfg.run_timeout_s == 300
+def test_image_requires_build_or_pull(tmp_path):
+    cfg_toml = _write(tmp_path, "config.toml", 'openms_repo = "OpenMS"\nthreads = 2\n')
+    images = _write(tmp_path, "images.yaml", "broken: {}\n")
+    benches = _write(tmp_path, "benchmarks.yaml", "benchmark_types: []\n")
+    try:
+        load_config(cfg_toml, images, benches)
+    except ValueError as e:
+        assert "build" in str(e) and "pull" in str(e)
+    else:
+        raise AssertionError("expected ValueError for image without build/pull")

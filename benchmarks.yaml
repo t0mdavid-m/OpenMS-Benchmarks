@@ -1,0 +1,19 @@
+benchmark_types:
+  - name: DDA-LFQ
+    # Comparability contract: every DDA-LFQ benchmark must emit these.
+    metrics:
+      - {name: num_precursors_quantified, unit: count, required: true}
+      - {name: num_proteins,               unit: count, required: true}
+      - {name: mean_abs_error_overall,     unit: log2,  required: true}
+      - {name: median_intra_condition_cv,  unit: ratio, required: true}
+      - {name: wall_clock_s,               unit: s,     required: true}
+      - {name: peak_mem_bytes,             unit: bytes, required: false}
+      - {name: "median_log2_ratio_*",      unit: log2,  required: false}
+      - {name: "mean_abs_error_*",         unit: log2,  required: false}
+    benchmarks:
+      - {name: comet, image: openms, run: openms/comet.sh, input: data/proteobench_module2}
+      - {name: sage,  image: openms, run: openms/sage.sh,  input: data/proteobench_module2}
+      - {name: msgf,  image: openms, run: openms/msgf.sh,  input: data/proteobench_module2}
+      - {name: prose, image: openms, run: openms/prose.sh, input: data/proteobench_module2}
+      - {name: comet-perc, image: openms, run: openms/comet-perc.sh, input: data/proteobench_module2}
+      - {name: msgf-perc,  image: openms, run: openms/msgf-perc.sh,  input: data/proteobench_module2}

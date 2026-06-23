@@ -1,11 +1,7 @@
 # Copy to config.toml and fill in. config.toml is gitignored.
-openms_repo = "OpenMS"          # path to the OpenMS git checkout (worktree source)
-threads = 4                     # fixed thread count for fair perf comparison
-http_base = "https://archive.openms.org/openms/benchmarks/pride-benchmarks/"
-
-# rsync-over-SSH credentials (maintainer only). Omit this section to use HTTP fallback.
-[rsync]
-user = "FILL_ME"                # ARCHIVE_RRSYNC_USER
-host = "FILL_ME"                # ARCHIVE_RRSYNC_HOST
-port = 22                       # ARCHIVE_RRSYNC_PORT
-key  = "C:/path/to/private.key" # ARCHIVE_RRSYNC_SSH written to a file
+openms_repo   = "OpenMS"   # path to the OpenMS git checkout (build-context source)
+threads       = 4          # fixed thread count for fair perf comparison
+scripts_dir   = "scripts"  # mounted read-only at /work
+results_dir   = "results"  # run tree written under results/runs/
+build_timeout_s = 10800
+run_timeout_s   = 7200

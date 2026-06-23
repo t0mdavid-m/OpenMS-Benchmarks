@@ -1,5 +1,0 @@
-name: lfq-prose
-engine: prose
-type: lfq-quant
-applies_to: lfq
-description: Label-free DDA quantification using the ProSE search engine (native OpenMS).
