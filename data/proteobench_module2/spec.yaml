@@ -1,0 +1,28 @@
+# Input-bundle contract. Drop the 6 .mzML files + the FASTA next to this file,
+# then point a benchmark's `input:` at this folder. Filenames here are the
+# DECOMPRESSED basenames (the harness no longer fetches/gunzips for you).
+fasta: ProteoBenchFASTA_MixedSpecies_HYE.fasta
+tolerances:
+  precursor_ppm: 10.0
+  fragment_da: 0.02
+ratio_direction: A_over_B
+species_rule:
+  exclude_regex: "Cont_"
+  suffix_map:
+    _HUMAN: HUMAN
+    _YEAST: YEAST
+    _ECOLI: ECOLI
+expected_log2_ratio:
+  HUMAN: 0.0
+  YEAST: 1.0
+  ECOLI: -2.0
+design:
+  conditions:
+    A:
+      1: [LFQ_Orbitrap_DDA_Condition_A_Sample_Alpha_01.mzML]
+      2: [LFQ_Orbitrap_DDA_Condition_A_Sample_Alpha_02.mzML]
+      3: [LFQ_Orbitrap_DDA_Condition_A_Sample_Alpha_03.mzML]
+    B:
+      1: [LFQ_Orbitrap_DDA_Condition_B_Sample_Alpha_01.mzML]
+      2: [LFQ_Orbitrap_DDA_Condition_B_Sample_Alpha_02.mzML]
+      3: [LFQ_Orbitrap_DDA_Condition_B_Sample_Alpha_03.mzML]
