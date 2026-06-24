@@ -65,47 +65,117 @@ stdout+stderr are captured by the host into `/out/error.log`.
 
 ## Inside an OpenMS workflow
 
-Each OpenMS run script sources an engine search lib, then the shared `common.sh` chain.
-`common.sh` provisions Python, builds `design.tsv` + tolerances from `spec.yaml`, runs the
-search → quant chain (timed), then self-scores into `metrics.tsv`.
+An OpenMS workflow is wired from two **yaml declarations** plus a few **mounted scripts** — the
+host runs no proteomics code of its own. `benchmarks.yaml` names the benchmark (`{name, image,
+run, input}` and the type's metric contract); `images.yaml` says how its `image` is built. The
+`run:` script is the entry point: for the OpenMS family it's a thin file that `source`s an engine
+**search lib** (which defines `run_search()`) and then the shared **`common.sh`** chain.
 
 ```mermaid
 flowchart TB
-    SPEC[("/input/spec.yaml")]:::data
-    PROV["provision python3<br/>(NOT timed)"]:::cont
-    DESIGN["spec.py to design.tsv<br/>+ tolerances/FASTA"]
-    DECOY["DecoyDatabase<br/>(timed phase starts)"]
-    LFQ["ProteomicsLFQ<br/>top-3 quant, MBR off"]
-    QUANT[("quant.tsv<br/>(timed phase ends)")]:::data
-    SCORE["score.py to metrics.tsv<br/>(self-scoring)"]:::plug
-    METRICS[("metrics.tsv<br/>+ wall_clock_s, peak_mem")]:::data
-
-    SPEC --> PROV --> DESIGN --> DECOY
-    subgraph PF["per .mzML file"]
-        direction TB
-        SEARCH["run_search()<br/>Comet / Sage / MS-GF+ / ProSE"]:::plug
-        PREP["prepare_ids()<br/>to 1% PSM FDR, main score = PEP"]:::plug
-        SEARCH --> PREP
+    subgraph DECL["declarative layer — yaml the host reads"]
+        direction LR
+        BM["benchmarks.yaml<br/>name · image · run · input<br/>+ the type's metric contract"]:::yaml
+        IM["images.yaml<br/>openms: build tools-thirdparty @ref"]:::yaml
     end
-    DECOY --> SEARCH
-    PREP --> LFQ --> QUANT --> SCORE --> METRICS
 
-    classDef plug fill:#ffe27a,stroke:#d48806,stroke-width:2px,color:#5c3d00;
+    ENTRY["scripts/openms/&lt;engine&gt;.sh<br/>comet · sage · msgf · prose<br/>= the run: entry script"]:::cont
+    SEARCH["lib/search-&lt;engine&gt;.sh<br/>defines run_search()"]:::plug
+    COMMON["lib/common.sh<br/>shared chain: decoy · search<br/>· ProteomicsLFQ · quant · score"]:::cont
+    SPEC[("/input/spec.yaml<br/>tolerances · design · species")]:::data
+    METRICS[("/out/metrics.tsv<br/>★ the only hard contract")]:::data
+    EXT["any non-OpenMS tool's script<br/>scripts/&lt;tool&gt;/&lt;tool&gt;.sh"]:::opt
+
+    BM -- "run:" --> ENTRY
+    IM -- "builds image" --> ENTRY
+    ENTRY -- "source" --> SEARCH
+    ENTRY -- "source" --> COMMON
+    SPEC --> COMMON
+    COMMON --> METRICS
+    EXT -. "bypasses common.sh" .-> METRICS
+
+    classDef yaml fill:#fff7e0,stroke:#d48806,color:#5c3d00;
     classDef cont fill:#eafaf0,stroke:#2f9e5f,color:#0b3d23;
+    classDef plug fill:#ffe27a,stroke:#d48806,stroke-width:2px,color:#5c3d00;
     classDef data fill:#eef4ff,stroke:#3b62a8,color:#13294b;
+    classDef opt fill:#f5f5f5,stroke:#999999,stroke-dasharray:5 3,color:#444444;
 ```
 
-`run_search()` is engine-specific. `prepare_ids()` ends with the `Posterior Error
-Probability` main score `ProteomicsLFQ` requires, in three forms:
+Every OpenMS engine reuses the one `common.sh`, but that reuse is a **convention, not a harness
+requirement**: the only hard contract is `/out/metrics.tsv`. A non-OpenMS tool's script can skip
+`common.sh` entirely and write that file its own way — the *add an external tool* path.
 
-- **`idpep`** *(default)* — IDPosteriorErrorProbability → FalseDiscoveryRate → IDFilter @1% PSM → PEP.
-- **`percolator`** — PSMFeatureExtractor → PercolatorAdapter → IDFilter → PEP. Only `comet-perc` and `msgf-perc` use it (`PSMFeatureExtractor` supports only Comet / X!Tandem / MS-GF+).
-- **engine override** — `prose.sh` replaces `prepare_ids()` entirely (IDPosteriorErrorProbability can't model ProSE scores, so it relabels ProSE's own q-value as PEP).
+**The declarative layer (yaml).** One benchmark is one line — `image:` keys into `images.yaml`,
+`input:` is the bundle mounted read-only at `/input`, `run:` is the script under `/work`:
 
-Cross-engine fairness for the OpenMS family is structural — every engine funnels through the
-one `common.sh` with identical params (Trypsin, 2 missed cleavages, fixed Carbamidomethyl(C),
-variable Oxidation(M), 1% PSM FDR, MBR off, top-3 quant); only per-dataset tolerances vary.
-(MS-GF+ uses `Trypsin/P` + an `-instrument high_res` fragment preset — a known gap.)
+```yaml
+# benchmarks.yaml  (one entry; the same file declares the type's required metrics)
+- {name: comet, image: openms, run: openms/comet.sh, input: data/proteobench_module2}
+```
+
+**The engine plug.** A `search-<engine>.sh` defines the one engine-specific step — a thin
+wrapper over the TOPP search tool, parameterized by tolerances pulled from `spec.yaml`:
+
+```bash
+# scripts/lib/search-comet.sh — the only per-engine code
+run_search() {                       # common.sh calls this once per .mzML
+  local mzml="$1" db="$2" out_id="$3"
+  CometAdapter -in "$mzml" -database "$db" -out "$out_id" \
+    -enzyme Trypsin -missed_cleavages 2 \
+    -fixed_modifications "Carbamidomethyl (C)" -variable_modifications "Oxidation (M)" \
+    -precursor_mass_tolerance "$PREC_TOL_PPM" -fragment_mass_tolerance "$FRAG_TOL_DA" \
+    -threads "$THREADS"
+}
+```
+
+`common.sh` then runs the measured chain — build a decoy DB, `run_search` + FDR-filter each
+`.mzML`, `ProteomicsLFQ` (top-3, MBR off) → `quant.tsv` — and self-scores into `metrics.tsv`
+afterwards (untimed). Everything dataset-specific it reads from the bundle's `spec.yaml`:
+
+```yaml
+# data/proteobench_module2/spec.yaml  (excerpt)
+tolerances: {precursor_ppm: 10.0, fragment_da: 0.02}      # → run_search params
+species_rule:                                             # → score.py
+  exclude_regex: "Cont_"                                  # drop contaminants first
+  suffix_map: {_HUMAN: HUMAN, _YEAST: YEAST, _ECOLI: ECOLI}
+design:                                                   # → design.tsv (A vs B, 3 reps each)
+  conditions:
+    A: {1: [..._Condition_A_..._01.mzML], 2: [...], 3: [...]}
+    B: {1: [..._Condition_B_..._01.mzML], 2: [...], 3: [...]}
+```
+
+**Three ways an entry script wires in.** The whole per-engine script is composition; what
+differs is how much it customizes *before* sourcing `common.sh`:
+
+```bash
+# openms/comet.sh — plain: just plug an engine into the chain
+source "$WORK/lib/search-comet.sh"      # defines run_search()
+source "$WORK/lib/common.sh"            # FDR backend defaults to idpep
+
+# openms/comet-perc.sh — backend flag: export an env var FIRST
+export FDR_BACKEND=percolator           # common.sh then selects the percolator FDR path
+source "$WORK/lib/search-comet.sh"
+source "$WORK/lib/common.sh"
+
+# openms/prose.sh — override: define the function BEFORE sourcing
+source "$WORK/lib/search-prose.sh"
+prepare_ids() { ...; }                  # common.sh keeps a pre-defined prepare_ids
+source "$WORK/lib/common.sh"
+```
+
+`prepare_ids()` must end with the `Posterior Error Probability` main score `ProteomicsLFQ`
+requires — which is why the backend is a wiring choice. Three forms: **`idpep`** *(default)* —
+`IDPosteriorErrorProbability → FalseDiscoveryRate → IDFilter @1% PSM → PEP`; **`percolator`** —
+`PSMFeatureExtractor → PercolatorAdapter → IDFilter → PEP`, used only by `comet-perc`/`msgf-perc`
+(`PSMFeatureExtractor` supports only Comet / X!Tandem / MS-GF+); **engine override** — `prose.sh`
+replaces `prepare_ids()` entirely, since `IDPosteriorErrorProbability` can't model ProSE scores,
+so it relabels ProSE's own q-value as PEP. `sage.sh` and `msgf.sh` use the plain pattern with
+their own `search-*.sh`.
+
+That shared chain is also what makes cross-engine comparison **fair**: identical params
+throughout (Trypsin, 2 missed cleavages, fixed Carbamidomethyl(C), variable Oxidation(M), 1% PSM
+FDR, MBR off, top-3 quant); only per-dataset tolerances vary. (MS-GF+ uses `Trypsin/P` + an
+`-instrument high_res` fragment preset — a known gap.)
 
 > **Cross-*tool* fairness** is the metric contract, not shared code: every benchmark of a
 > type emits the same metric columns, computed by whatever scorer its script ships. Drift
