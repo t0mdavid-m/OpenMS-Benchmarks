@@ -1,7 +1,7 @@
 # Benchmarking OpenMS against other tools
 
 This repo is a **controlled benchmark** that compares OpenMS against other proteomics
-tools (FragPipe, DIA-NN, …) on a shared task. Each tool runs in **its own container**; a
+tools (e.g. FragPipe, not yet wired up) on a shared task. Each tool runs in **its own container**; a
 **mounted script runs the tool and scores its own output**, emitting one `metrics.tsv`. The
 host is a thin orchestrator: it materializes images, runs each benchmark, and harvests the
 results. The OpenMS image is *built from a git ref* (the high-level version knob), so you can
@@ -22,12 +22,12 @@ flowchart LR
         RUN["docker run<br/>per benchmark"]:::host
         HARVEST["harvest + validate<br/>metrics.tsv vs schema"]:::host
         TREE[("results/runs/&lt;ref&gt;/&lt;tool&gt;/&lt;ds&gt;/<br/>metrics.tsv · error.log · run.json")]:::host
-        AGG["aggregate.py<br/>wide comparison on demand"]:::host
+        AGG["bench aggregate<br/>wide comparison on demand"]:::host
     end
 
     subgraph CONT["CONTAINER — the tool image: mounted script runs tool AND self-scores"]
         direction TB
-        PROV["provision deps<br/>(e.g. pip install) — untimed"]:::cont
+        PROV["provision deps<br/>(e.g. apt install) — untimed"]:::cont
         TOOL["run tool<br/>(timed) + score"]:::cont
         METRICS[("/out/metrics.tsv")]:::cont
     end
@@ -74,14 +74,14 @@ flowchart TB
     SPEC[("/input/spec.yaml")]:::data
     PROV["provision python3<br/>(NOT timed)"]:::cont
     DESIGN["spec.py to design.tsv<br/>+ tolerances/FASTA"]
-    DECOY["DecoyDatabase"]
+    DECOY["DecoyDatabase<br/>(timed phase starts)"]
     LFQ["ProteomicsLFQ<br/>top-3 quant, MBR off"]
-    QUANT[("quant.tsv")]:::data
+    QUANT[("quant.tsv<br/>(timed phase ends)")]:::data
     SCORE["score.py to metrics.tsv<br/>(self-scoring)"]:::plug
     METRICS[("metrics.tsv<br/>+ wall_clock_s, peak_mem")]:::data
 
     SPEC --> PROV --> DESIGN --> DECOY
-    subgraph PF["per .mzML file (timed phase)"]
+    subgraph PF["per .mzML file"]
         direction TB
         SEARCH["run_search()<br/>Comet / Sage / MS-GF+ / ProSE"]:::plug
         PREP["prepare_ids()<br/>to 1% PSM FDR, main score = PEP"]:::plug
@@ -129,7 +129,7 @@ There is **no central ledger.** Each run writes three files under
 | --- | --- | --- |
 | `metrics.tsv` | container | `metric  value  unit` rows (the comparable result) |
 | `error.log` | host (redirect) | the container's stdout+stderr |
-| `run.json` | host | provenance: image digest, ref, threads, host_cpu, timestamp, returncode, outer wall, `metrics_valid` |
+| `run.json` | host | provenance: image tag, ref, threads, host_cpu, timestamp, returncode, outer wall, `metrics_valid` |
 
 The host validates each `metrics.tsv` against the benchmark-type's declared metric schema
 (in `benchmarks.yaml`) — missing required metrics → `metrics_valid: false`. Build a wide
