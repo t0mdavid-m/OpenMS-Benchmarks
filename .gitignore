@@ -4,7 +4,10 @@ config.toml
 .pytest_cache/
 __pycache__/
 results/results.tsv
-OpenMS/
+# Anchored to repo root: the vendored checkout only. Unanchored "OpenMS/" also
+# matched scripts/openms/ on case-insensitive filesystems (Windows), silently
+# un-tracking the run scripts.
+/OpenMS/
 results/
 .venv/
 .venv-test/
